@@ -26,6 +26,11 @@ const alchemyUrlRinkeby = () => {
     return `https://eth-rinkeby.alchemyapi.io/v2/${getSecret('alchemyAPIKeyRinkeby')}`
 }
 
+const infruaUrlKovan = () => {
+    return `https://kovan.infura.io/v3/${getSecret('infuraAPIKeyTestnet')}`
+}
+
+
 module.exports = {
     paths: {
         // contracts: "./contracts",
@@ -56,7 +61,7 @@ module.exports = {
                 settings: {
                     optimizer: {
                         enabled: true,
-                        runs: 100
+                        runs: 200
                     }
                 }
             },
@@ -82,6 +87,12 @@ module.exports = {
             gas: 10000000,  // tx gas limit
             accounts: [getSecret('RINKEBY_DEPLOYER_PRIVATEKEY', '0x60ddfe7f579ab6867cbe7a2dc03853dc141d7a4ab6dbefc0dae2d2b1bd4e487f')]
         },
+
+        kovan: {
+            url: infruaUrlKovan(),
+            gas: 10000000,  // tx gas limit
+            accounts: [getSecret('RINKEBY_DEPLOYER_PRIVATEKEY', '0x60ddfe7f579ab6867cbe7a2dc03853dc141d7a4ab6dbefc0dae2d2b1bd4e487f')]
+        },        
     },
     etherscan: {
         apiKey: getSecret("ETHERSCAN_API_KEY")
