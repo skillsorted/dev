@@ -69,7 +69,7 @@ export const LiquityFrontend: React.FC<LiquityFrontendProps> = ({ loader }) => {
                       <Route path="/farm">
                         <Farm />
                       </Route>
-                      <Route path="/JustSP">
+                      <Route path="/widget">
                         <JustSP />
                       </Route>
                       <Route path="/risky-troves">
