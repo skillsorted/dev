@@ -23,6 +23,8 @@ contract Avatar is Ownable {
         LUSD = _LUSD;
         LQTY = _LQTY;
         bamm = _bamm;
+
+        _LUSD.approve(address(_bamm), uint(-1));
     }
 
     function mint(uint lusdAmount) external onlyOwner returns(uint) {
@@ -71,7 +73,7 @@ contract BSPToken {
     string public constant symbol = "BSPT";
     uint8 public constant decimals = 18;  // 18 is the most common number of decimal places
 
-    mapping(address => uint) public expectedCtokenBalance;
+    mapping(address => uint) public expectedCTokenBalance;
     mapping(address => Avatar) public avatars;
 
     event Transfer(address indexed from, address indexed to, uint tokens);
@@ -128,9 +130,9 @@ contract BSPToken {
     }
 
     function liquidate(address user, uint tokenAmount) external {
-        require(expectedCtokenBalance[user].sub(tokenAmount) >= ctoken.balanceOfUnderlying(user), "liquidate: not-allowed");
+        require(expectedCTokenBalance[user].sub(tokenAmount) >= ctoken.balanceOfUnderlying(user), "liquidate: not-allowed");
 
-        expectedCtokenBalance[user] = expectedCtokenBalance[user].sub(tokenAmount);
+        expectedCTokenBalance[user] = expectedCTokenBalance[user].sub(tokenAmount);
         balanceOf[msg.sender] = balanceOf[msg.sender].sub(tokenAmount);
 
         getAvatar(user).burn(tokenAmount, msg.sender);
@@ -141,16 +143,16 @@ contract BSPToken {
     function _transfer(address src, address dest, uint amount) internal returns(bool) {
         uint currBal = balanceOf[src];
         require(amount <= currBal, "_transfer: low-balance");
-        require(src != address(ctoken) && dest != address(ctoken), "_transfer: dest not ctoken");
+        require(src == address(ctoken) || dest == address(ctoken), "_transfer: src and dest not ctoken");
         require(src != dest, "_transfer: dest == src");
 
         if(dest == address(ctoken)) {
-            expectedCtokenBalance[src] = expectedCtokenBalance[src].add(amount);
+            expectedCTokenBalance[src] = expectedCTokenBalance[src].add(amount);
         }
         else if(src == address(ctoken)) {
-            uint currCBal = expectedCtokenBalance[dest];
-            if(currCBal < amount) expectedCtokenBalance[dest] = 0;
-            else expectedCtokenBalance[dest] = currCBal.sub(amount);
+            uint currCBal = expectedCTokenBalance[dest];
+            if(currCBal < amount) expectedCTokenBalance[dest] = 0;
+            else expectedCTokenBalance[dest] = currCBal.sub(amount);
         }
         else revert("_transfer: unsupported src and dest");
 
