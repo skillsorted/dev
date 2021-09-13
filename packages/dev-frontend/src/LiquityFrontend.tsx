@@ -1,5 +1,5 @@
 import React from "react";
-import { Flex, Container, Card } from "theme-ui";
+import { Flex, Container } from "theme-ui";
 import { HashRouter as Router, Switch, Route } from "react-router-dom";
 import { Wallet } from "@ethersproject/wallet";
 
