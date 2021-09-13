@@ -1,5 +1,5 @@
 import React from "react";
-import { Flex, Container } from "theme-ui";
+import { Flex, Container, Card } from "theme-ui";
 import { HashRouter as Router, Switch, Route } from "react-router-dom";
 import { Wallet } from "@ethersproject/wallet";
 
@@ -22,6 +22,18 @@ import { TroveViewProvider } from "./components/Trove/context/TroveViewProvider"
 import { StabilityViewProvider } from "./components/Stability/context/StabilityViewProvider";
 import { StakingViewProvider } from "./components/Staking/context/StakingViewProvider";
 import { FarmViewProvider } from "./components/Farm/context/FarmViewProvider";
+import { ConnectPage } from "./components/ConnectPage"
+
+const fullPageStyle = {
+  position: "fixed",
+  margin: 0,
+  display: "block",
+  top: 0,
+  left: 0,
+  width: "100%",
+  height: "100%",
+  zIndex: 1
+} as React.CSSProperties;
 
 type LiquityFrontendProps = {
   loader?: React.ReactNode;
@@ -71,6 +83,11 @@ export const LiquityFrontend: React.FC<LiquityFrontendProps> = ({ loader }) => {
                       </Route>
                       <Route path="/widget">
                         <JustSP />
+                      </Route>
+                      <Route path="/explainer">
+                        <div style={fullPageStyle}>
+                          <ConnectPage />
+                        </div>
                       </Route>
                       <Route path="/risky-troves">
                         <RiskyTrovesPage />
