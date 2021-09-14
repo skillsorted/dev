@@ -19,34 +19,29 @@ the quicker & simpler approch
 there are sevral ways to integrate our front-end with your exsiting front end and we will demonstrate a few options.
 
 1) integrate our front end as a widget into an exsiting page or modal window. 
-    1) in this example our widget in red border inside the original liquity app [widget example](https://integration-example.bprotocol.workers.dev/#/)
+    1) in this example our widget in red border inside the original liquity app [widget example](https://integration-example-3.bprotocol.workers.dev)
 
 1) integrate our front-end as a page in your exsiting app. 
-     1) our widget in red border as a page of the original liquity app [page example](https://integration-example.bprotocol.workers.dev/#/bprotocol)
+     1) click on the red B.PROTOCOL navigation link to see our widget in red border as a page of the original liquity app [page example](https://integration-example-1.bprotocol.workers.dev/)
 
 1) integrate our front-end as a separate single page application linked to your website  
-     1) click on the red B.PROTOCOL navigation link to see the SPA on the same domain using the same meta mask connection [seperate singel page application example](https://integration-example.bprotocol.workers.dev/#/farm)
+     1) click on the red B.PROTOCOL navigation link to see the SPA on the same domain using the same meta mask connection [seperate singel page application example](https://integration-example-2.bprotocol.workers.dev/)
 
-### integrate our front-end as a page in your exsiting app
-git clone the repo
-- yarn
-- cd packages/dev-frontend
-- yarn
-- change teh BAMM address in kovan.json & mainnet.json to your bamm version
-- yarn start
-- change package.json "homepage": "/<what ever path you would like the server the files from>",
-- yarn build
-- upload the static build to you static hosting solution and change the build folder name to the desired path
+### steps to integrate our front-end in your exsiting app
+1) git clone the repo
+2) install and compile all TS files run ```yarn install```
+5) find mainnet.json addresses file change the BAMM address in to your version of the BAMM contract
+6) ```cd packages/dev-frontend```
+6) run ```yarn start``` to test that the app is working as expected.
+7) in package.json change "homepage" property to what ever directory name you wish to serve our widget from
+8) ```yarn build```
+9) upload the contents of the build folder to your website/app hosting under the directory you chose as the "homepage"
+10) use one of these snipets to embad in your website/app
 
-integration options
-- full app: a simple relative link in your app/website to the /path you deployed to to view the full app
-- a page in your app: create a page in your app that has your navigation bar using an iframe with an SRC atribute src="/directory" to display the app under your exsiting nav bar
-- a widget in an already exsiting page: lastly in an already existing page add only a widget 
-	- add an iframe with an src attribute to the /directory/#/widget give it the width and highet you like
-	- positiion it where ever you like and you will see only the bamm widget in the iframe box
+    1) page in app: ```<iframe height="800px" width="100%" src="/"homepage"?hideNav=true" style="border: 2px solid red;"></iframe>```
+    2) widget: ```<iframe height="800px" width="100%" src="/"homepage"?widget=true" style="border: 2px solid red;"></iframe>```
+    3) or a simple link: ```<a href="homepage">bamm</a>```
 
- 	 
-
-
+for questions or other integration options please reach out on our [Discord channel](https://discord.com/invite/bJ4guuw)
 
 
