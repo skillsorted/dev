@@ -63,7 +63,7 @@ export const NoDeposit: React.FC<StabilityProps> = props => {
               tooltip={
                 <Card variant="tooltip" sx={{ width: ["220px", "518px"] }}>
                   <Paragraph>
-                    Deposit LUSD only via B.Protocol for automated rebalancing.
+                    Deposit your LUSD only via B.Protocol for automated rebalancing.
                   </Paragraph>
                 </Card>
               }
