@@ -71,6 +71,7 @@ export const validateStabilityDepositChange = (
         <Amount>
           {change.depositLUSD.sub(lusdBalance).prettify()} {COIN}
         </Amount>
+        .
       </ErrorDescription>
     ];
   }
