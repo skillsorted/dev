@@ -1,5 +1,5 @@
 import React, { useCallback, useState, useEffect } from "react";
-import { Card, Heading, Box, Flex, Button, Container, Close, Text } from "theme-ui";
+import { Card, Heading, Box, Flex, Button, Container, Close, Text, Paragraph } from "theme-ui";
 import { InfoMessage } from "../InfoMessage";
 import { useStabilityView } from "./context/StabilityViewContext";
 import { RemainingLQTY } from "./RemainingLQTY";
@@ -7,7 +7,8 @@ import { Yield } from "./Yield";
 import { useLiquitySelector } from "@liquity/lib-react";
 import { useTransactionFunction } from "../Transaction";
 import { useLiquity } from "./../../hooks/LiquityContext";
-import { justSpStyle, StabilityProps } from "./Stability"
+import { justSpStyle, StabilityProps } from "./Stability";
+import { InfoIcon } from "../InfoIcon";
 
 const selector = ( {bammAllowance, lusdBalance}: any) => ({
   bammAllowance,
@@ -58,6 +59,15 @@ export const NoDeposit: React.FC<StabilityProps> = props => {
           <br/>
           {lusdBalance == '0' && <span>
             You can mint LUSD <a href="https://liquity.app/#/" target="_top">here</a>
+            <InfoIcon
+              tooltip={
+                <Card variant="tooltip" sx={{ width: ["220px", "518px"] }}>
+                  <Paragraph>
+                    Deposit LUSD only via B.Protocol for automated rebalancing.
+                  </Paragraph>
+                </Card>
+              }
+            ></InfoIcon>
             </span>}
         </InfoMessage>
 
