@@ -71,7 +71,8 @@ export const validateStabilityDepositChange = (
         <Amount>
           {change.depositLUSD.sub(lusdBalance).prettify()} {COIN}
         </Amount>
-        .
+        .<br/>
+        You can mint LUSD <a href="https://liquity.app/#/" target="_top">here</a>
       </ErrorDescription>
     ];
   }

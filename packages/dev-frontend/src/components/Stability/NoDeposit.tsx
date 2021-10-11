@@ -9,8 +9,9 @@ import { useTransactionFunction } from "../Transaction";
 import { useLiquity } from "./../../hooks/LiquityContext";
 import { justSpStyle, StabilityProps } from "./Stability"
 
-const selector = ( {bammAllowance}: any) => ({
-  bammAllowance
+const selector = ( {bammAllowance, lusdBalance}: any) => ({
+  bammAllowance,
+  lusdBalance
 });
 
 export const UnlockButton: React.FC = props => {
@@ -35,7 +36,7 @@ export const UnlockButton: React.FC = props => {
 
 export const NoDeposit: React.FC<StabilityProps> = props => {
   const { liquity } = useLiquity();
-  const { bammAllowance } = useLiquitySelector(selector);
+  const { bammAllowance, lusdBalance } = useLiquitySelector(selector);
   const { dispatchEvent } = useStabilityView();
 
   const handleOpenTrove = useCallback(() => {
@@ -54,6 +55,10 @@ export const NoDeposit: React.FC<StabilityProps> = props => {
       <Box sx={{ p: [2, 3] }}>
         <InfoMessage title="You have no LUSD in the Stability Pool.">
           You can earn LUSD and LQTY rewards by depositing LUSD.
+          <br/>
+          {lusdBalance == '0' && <span>
+            You can mint LUSD <a href="https://liquity.app/#/" target="_top">here</a>
+            </span>}
         </InfoMessage>
 
         <Flex variant="layout.actions">
