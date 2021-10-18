@@ -2,95 +2,165 @@
 
 pragma solidity 0.6.11;
 
-import "./BAMM.sol";
 import "./../Dependencies/Ownable.sol";
 import "./../Dependencies/IERC20.sol";
 import "./../Dependencies/SafeMath.sol";
 
-interface CToken {
-    function balanceOfUnderlying(address account) external returns (uint);
+
+interface CrvGauge {
+    function deposit(uint _value, address _addr, bool _claimRewards) external;
+    function withdraw(uint _value, bool _claimRewards) external;
+    function claim_rewards(address _addr, address _receiver) external;    
 }
 
+interface Cauldron {
+    function addCollateral(address to, bool skim, uint share) external;
+    function removeCollateral(address to, uint share) external;
 
+    function borrow(address to, uint amount) external returns (uint part, uint share);
+    function repay(address to, bool skim, uint part) external;
+
+    // view functions
+
+    // this returns the precise collateral
+    function userCollateralShare(address user) external returns(uint);
+
+    // this does not returnt the actual borrow part, but we only need it to test if 0
+    function userBorrowPart(address user) external returns(uint);
+}
+
+interface BAMM {
+    function deposit(uint mimAmount) external;
+    function withdraw(uint shareAmount) external;
+}
+
+// TODO - make a proxy for cheap deployment
 contract Avatar is Ownable {
     using SafeMath for uint256;
 
-    IERC20 public immutable LUSD;
-    IERC20 public immutable LQTY;
+    IERC20 public immutable mim;
+    IERC20 public immutable mim3Pool;
+    IERC20 public immutable bmim3Pool;
+    CrvGauge public immutable gauge;
+    Cauldron public immutable cauldron;
     BAMM public immutable bamm;
+    address public user;
 
-    constructor(IERC20 _LUSD, IERC20 _LQTY, BAMM _bamm) public {
-        LUSD = _LUSD;
-        LQTY = _LQTY;
+    modifier onlyUser() {
+        require(msg.sender == user, "caller is not the user");
+        _;
+    }    
+
+    constructor(IERC20 _mim, IERC20 _bmim3Pool, IERC20 _mim3Pool, CrvGauge _gauge, Cauldron _cauldron, BAMM _bamm, address _user) public {
+        mim3Pool = _mim3Pool;
+        bmim3Pool = _bmim3Pool;
+        mim = _mim;
+        gauge = _gauge;
+        cauldron = _cauldron;
         bamm = _bamm;
+        user = _user;
 
-        _LUSD.approve(address(_bamm), uint(-1));
+        // give allowance to the curvfi guague
+        _mim3Pool.approve(address(_gauge), uint(-1));
+        _bmim3Pool.approve(address(_cauldron), uint(-1));
+        _mim.approve(address(_bamm), uint(-1));
     }
 
-    function mint(uint lusdAmount) external onlyOwner returns(uint) {
-        // lusd balance is assumed to be already here
-        uint balanceBefore = bamm.balanceOf(address(this));
-        bamm.deposit(lusdAmount);
-        uint balanceAfter = bamm.balanceOf(address(this));
-        uint balanceDiff = balanceAfter.sub(balanceBefore);
+    //////////////////////////////////////////////////////////////////
 
-        return balanceDiff;
+    function mint(uint m3pAmount) external onlyOwner {
+        gauge.deposit(m3pAmount, address(this), false);
     }
 
-    function burn(uint shareAmount, address payable dest) external onlyOwner returns(uint) {
-        uint lusdBalanceBefore = LUSD.balanceOf(address(this));
-        uint ethBalanceBefore = address(this).balance;
+    function burn(uint m3pAmount, address dest) external onlyOwner {
+        gauge.withdraw(m3pAmount, true);
+        mim3Pool.transfer(dest, m3pAmount);
+    }
 
+    function harvest(address dest) external onlyOwner returns(uint) {
+        gauge.claim_rewards(address(this), dest);
+    }
+
+    //////////////////////////////////////////////////////////////////
+
+    function addCollateral(uint bmim3PoolAmount) external onlyUser {
+        cauldron.addCollateral(address(this), false, bmim3PoolAmount);
+    }
+
+    function removeCollateral(uint bmim3PoolAmount) external onlyUser {
+        cauldron.removeCollateral(address(this), bmim3PoolAmount);
+    }
+
+    function borrow(uint mimAmount) external onlyUser {
+        cauldron.borrow(address(this), mimAmount);
+    }
+
+    function repay(uint part) external onlyUser {
+        cauldron.repay(address(this), false, part);
+    }
+
+    //////////////////////////////////////////////////////////////////
+
+    function fetchEth(address payable dest, uint amount) external onlyUser {
+        dest.transfer(amount);
+    }
+
+    function fetchToken(IERC20 token, address dest, uint amount) external onlyUser {
+        // avoid 0 test to prevent rounding errors.
+        if(token == mim) require(cauldron.userBorrowPart(address(this)) < 1e16, "fetchToken/repay-debt-first");
+
+        token.transfer(dest, amount);
+    }
+
+    //////////////////////////////////////////////////////////////////
+
+    function bammDeposit(uint mimAmount) external onlyUser {
+        bamm.deposit(mimAmount);
+    }
+
+    function bammWithdraw(uint shareAmount) external onlyUser {
         bamm.withdraw(shareAmount);
-
-        uint lusdBalanceAfter = LUSD.balanceOf(address(this));
-        uint ethBalanceAfter = address(this).balance;
-
-        LUSD.transfer(dest, lusdBalanceAfter.sub(lusdBalanceBefore));
-        dest.transfer(ethBalanceAfter.sub(ethBalanceBefore));
-    }
-
-    function harvestLqty(address dest) external onlyOwner returns(uint) {
-        bamm.withdraw(0);
-        LQTY.transfer(dest, LQTY.balanceOf(address(this)));
-    }
+    }    
 
     receive() external payable {}
 }
 
-contract BSPToken {
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+contract BMCrvToken {
     using SafeMath for uint256;
 
-    IERC20 public immutable LUSD;
-    IERC20 public immutable LQTY;
+    IERC20 public immutable mim;
+    IERC20 public immutable mim3Pool;
+    CrvGauge public immutable gauge;
+    Cauldron public immutable cauldron;
     BAMM public immutable bamm;
-    CToken public immutable ctoken;
 
     uint public totalSupply;
     mapping(address => uint) public balanceOf;
     mapping(address => mapping(address => uint)) public allowance;
-    string public constant name = "B.Protocol's Wrapped Stability Pool Token";
-    string public constant symbol = "BSPT";
+    string public constant name = "B.Protocol's Wrapped MIM-3-POOL-f Token";
+    string public constant symbol = "BM3P";
     uint8 public constant decimals = 18;  // 18 is the most common number of decimal places
 
-    mapping(address => uint) public expectedCTokenBalance;
+    mapping(address => uint) public expectedCauldronBalance;
     mapping(address => Avatar) public avatars;
 
     event Transfer(address indexed from, address indexed to, uint tokens);
     event Approval(address indexed tokenOwner, address indexed spender, uint tokens);    
 
-    constructor(IERC20 _LUSD, IERC20 _LQTY, BAMM _bamm, CToken _ctoken) public {
-        LUSD = _LUSD;
-        LQTY = _LQTY;
+    constructor(IERC20 _mim, IERC20 _mim3Pool, CrvGauge _gauge, Cauldron _cauldron, BAMM _bamm) public {
+        mim3Pool = _mim3Pool;
+        mim = _mim;
+        gauge = _gauge;
+        cauldron = _cauldron;
         bamm = _bamm;
-        ctoken = _ctoken;
     }
 
     function getAvatar(address a) internal returns(Avatar) {
         if(avatars[a] == Avatar(0)) {
-            Avatar av = new Avatar(LUSD, LQTY, bamm);
+            Avatar av = new Avatar(mim, IERC20(address(this)), mim3Pool, gauge, cauldron, bamm, a);
             avatars[a] = av;
-            LUSD.approve(address(av), uint(-1));
 
             return av;
         }
@@ -98,41 +168,41 @@ contract BSPToken {
         return avatars[a];
     }
 
-    function mint(uint lusdAmount) external returns(uint) {
+    function mint(uint mim3PoolAmount) external returns(uint) {
         Avatar a = getAvatar(msg.sender);
-        LUSD.transferFrom(msg.sender, address(a), lusdAmount);
-        uint deltaBalance = a.mint(lusdAmount);
-        balanceOf[msg.sender] = balanceOf[msg.sender].add(deltaBalance);
+        mim3Pool.transferFrom(msg.sender, address(a), mim3PoolAmount);
+        a.mint(mim3PoolAmount);
+        balanceOf[msg.sender] = balanceOf[msg.sender].add(mim3PoolAmount);
 
-        emit Transfer(address(0), msg.sender, deltaBalance);
+        emit Transfer(address(0), msg.sender, mim3PoolAmount);
 
-        totalSupply = totalSupply.add(deltaBalance);
+        totalSupply = totalSupply.add(mim3PoolAmount);
 
-        return deltaBalance;
+        return mim3PoolAmount;
     }
 
-    function burn(uint tokenAmount) external returns(uint) {
+    function burn(uint mim3PoolAmount) external returns(uint) {
         Avatar a = getAvatar(msg.sender);
 
         uint currBal = balanceOf[msg.sender];
-        require(tokenAmount <= currBal, "burn: low-balance");
+        require(mim3PoolAmount <= currBal, "burn: low-balance");
 
-        balanceOf[msg.sender] = currBal.sub(tokenAmount);
-        a.burn(tokenAmount, msg.sender);
+        balanceOf[msg.sender] = currBal.sub(mim3PoolAmount);
+        a.burn(mim3PoolAmount, msg.sender);
 
-        totalSupply = totalSupply.sub(tokenAmount);
+        totalSupply = totalSupply.sub(mim3PoolAmount);
 
-        emit Transfer(msg.sender, address(0), tokenAmount); 
+        emit Transfer(msg.sender, address(0), mim3PoolAmount); 
     }
 
-    function harvestLqty() external {
-        getAvatar(msg.sender).harvestLqty(msg.sender);
+    function harvest() external {
+        getAvatar(msg.sender).harvest(msg.sender);
     }
 
     function liquidate(address user, uint tokenAmount) external {
-        require(expectedCTokenBalance[user].sub(tokenAmount) >= ctoken.balanceOfUnderlying(user), "liquidate: not-allowed");
+        require(expectedCauldronBalance[user].sub(tokenAmount) >= cauldron.userCollateralShare(user), "liquidate: not-allowed");
 
-        expectedCTokenBalance[user] = expectedCTokenBalance[user].sub(tokenAmount);
+        expectedCauldronBalance[user] = expectedCauldronBalance[user].sub(tokenAmount);
         balanceOf[msg.sender] = balanceOf[msg.sender].sub(tokenAmount);
 
         getAvatar(user).burn(tokenAmount, msg.sender);
@@ -143,16 +213,16 @@ contract BSPToken {
     function _transfer(address src, address dest, uint amount) internal returns(bool) {
         uint currBal = balanceOf[src];
         require(amount <= currBal, "_transfer: low-balance");
-        require(src == address(ctoken) || dest == address(ctoken), "_transfer: src and dest not ctoken");
+        require(src == address(cauldron) || dest == address(cauldron), "_transfer: src and dest not ctoken");
         require(src != dest, "_transfer: dest == src");
 
-        if(dest == address(ctoken)) {
-            expectedCTokenBalance[src] = expectedCTokenBalance[src].add(amount);
+        if(dest == address(cauldron)) {
+            expectedCauldronBalance[src] = expectedCauldronBalance[src].add(amount);
         }
-        else if(src == address(ctoken)) {
-            uint currCBal = expectedCTokenBalance[dest];
-            if(currCBal < amount) expectedCTokenBalance[dest] = 0;
-            else expectedCTokenBalance[dest] = currCBal.sub(amount);
+        else if(src == address(cauldron)) {
+            uint currCBal = expectedCauldronBalance[dest];
+            if(currCBal < amount) expectedCauldronBalance[dest] = 0;
+            else expectedCauldronBalance[dest] = currCBal.sub(amount);
         }
         else revert("_transfer: unsupported src and dest");
 
