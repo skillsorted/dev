@@ -77,7 +77,8 @@ contract Avatar is Ownable {
         mim3Pool.transfer(dest, m3pAmount);
     }
 
-    function harvest(address dest) external onlyOwner returns(uint) {
+    // callable by anyone
+    function harvest(address dest) external returns(uint) {
         gauge.claim_rewards(address(this), dest);
     }
 
