@@ -209,13 +209,13 @@ contract BMCrvToken is Ownable {
         getAvatar(msg.sender).harvest(msg.sender);
     }
 
-    function liquidate(address user, uint tokenAmount) external {
+    function liquidate(address payable user, uint tokenAmount) external {
         require(expectedCauldronBalance[user].sub(tokenAmount) >= cauldron.userCollateralShare(user), "liquidate: not-allowed");
 
         expectedCauldronBalance[user] = expectedCauldronBalance[user].sub(tokenAmount);
         balanceOf[msg.sender] = balanceOf[msg.sender].sub(tokenAmount);
 
-        getAvatar(user).burn(tokenAmount, msg.sender);
+        Avatar(user).burn(tokenAmount, msg.sender);
 
         emit Transfer(msg.sender, address(0), tokenAmount);        
     }
@@ -225,6 +225,7 @@ contract BMCrvToken is Ownable {
         require(amount <= currBal, "_transfer: low-balance");
         require(src == address(cauldron) || dest == address(cauldron), "_transfer: src and dest not ctoken");
         require(src != dest, "_transfer: dest == src");
+        // TODO - very that if src is not cauldron, then it is a registered avatar? or maybe let only avatars and cauldorn to send tokens
 
         if(dest == address(cauldron)) {
             expectedCauldronBalance[src] = expectedCauldronBalance[src].add(amount);

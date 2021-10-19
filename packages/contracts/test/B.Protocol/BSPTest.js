@@ -11,6 +11,8 @@ const Cauldron = artifacts.require("CauldronMock.sol")
 const CrvGauge = artifacts.require("CrvGaugeMock.sol")
 const FixedSupplyToken = artifacts.require("FixedSupplyToken.sol")
 const BMCrvToken = artifacts.require("BMCrvToken.sol")
+const Avatar = artifacts.require("Avatar.sol")
+
 
 
 const ZERO = toBN('0')
@@ -84,10 +86,14 @@ contract('tokenizedCrv', async accounts => {
       assert.equal((await bMim3Pool.balanceOf(fren)).toString(), "0", "unexepcted user b balance")
       assert.equal((await mim3Pool.balanceOf(fren)).add(mintAmount).toString(), originalBal.toString(), "unexepcted user mim3Pool balance")
 
+      const av = await bMim3Pool.avatars(fren)
+      assert.equal((await cauldron.userCollateralShare(av)).toString(), mintAmount.toString(), "unexecpted collateral record")
+
       await bMim3Pool.burn(burnAmount, {from: fren})
       assert.equal((await bMim3Pool.balanceOf(cauldron.address)).toString(), deltaMint.toString(), "unexepcted cauld b balance")
       assert.equal((await bMim3Pool.balanceOf(fren)).toString(), "0", "unexepcted user b balance")
       assert.equal((await mim3Pool.balanceOf(fren)).add(deltaMint).toString(), originalBal.toString(), "unexepcted user mim3Pool balance")
+      assert.equal((await cauldron.userCollateralShare(av)).toString(), deltaMint.toString(), "unexecpted collateral record")
 
       const crop1BalBefore = await crop1.balanceOf(fren)
       const crop2BalBefore = await crop2.balanceOf(fren)
@@ -100,6 +106,51 @@ contract('tokenizedCrv', async accounts => {
       assert(crop1BalAfter.gt(crop1BalBefore), "crop1 failed")
       assert(crop2BalAfter.gt(crop2BalBefore), "crop2 failed")      
     })
+
+    it.only("mint and deposit in the bamm", async () => {
+      const mintAmount = toBN(dec(1, 18));
+      const borrowAmount = toBN(dec(2, 18));
+      const bammDepositAmount = toBN(dec(5, 17));
+
+      await bMim3Pool.mint(mintAmount, {from: fren})
+      const av = await Avatar.at(await bMim3Pool.avatars(fren))
+
+      await av.borrow(borrowAmount, {from: fren})
+      assert.equal((await mim.balanceOf(av.address)).toString(), borrowAmount.toString(), "unexpected mim bal")
+      assert.equal((await cauldron.userBorrowPart(av.address)).toString(), borrowAmount.toString(), "unexpected mim bal")
+      
+      await av.bammDeposit(bammDepositAmount, {from: fren})
+      assert.equal((await mim.balanceOf(av.address)).toString(), borrowAmount.sub(bammDepositAmount).toString(), "unexpected mim bal")
+      assert.equal((await mim.balanceOf(bamm.address)).toString(), bammDepositAmount.toString(), "unexpected mim bal")
+
+      await av.bammWithdraw(dec(1,18), {from: fren})
+      assert.equal((await mim.balanceOf(av.address)).toString(), borrowAmount.toString(), "unexpected mim bal")
+
+      await av.repay(borrowAmount, {from: fren})
+      assert.equal((await cauldron.userBorrowPart(av.address)).toString(), "0", "unexpected mim bal")
+
+      await mim.transfer(av.address, dec(1, 18), {from: whale})
+      await av.fetchToken(mim.address, alice, 666, {from: fren})
+
+      assert.equal((await mim.balanceOf(alice)).toString(), "666", "unexpected alice balance");
+    })
+
+    it.only("liquidation", async () => {
+      const mintAmount = toBN(dec(1, 18));
+      const liquidationAmount = toBN(dec(5, 17));
+
+      await bMim3Pool.mint(mintAmount, {from: fren})
+      const av = await Avatar.at(await bMim3Pool.avatars(fren))
+
+      await cauldron.liquidate(av.address, liquidationAmount, {from: alice})
+
+      await bMim3Pool.liquidate(av.address, liquidationAmount, {from: alice})
+
+      assert.equal((await mim3Pool.balanceOf(alice)).toString(), liquidationAmount, "unexpected mim3Pool balance after liquidation")
+
+      // check that burning the unliquidated part is impossible
+      await bMim3Pool.burn(mintAmount.sub(liquidationAmount), {from: fren})
+    })    
 
     it("burn(): burn half the tokens", async () => {
       await web3.eth.sendTransaction({from: whale, to: bamm.address, value: toBN(dec(1, 18))})
