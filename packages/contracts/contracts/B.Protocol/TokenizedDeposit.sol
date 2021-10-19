@@ -64,6 +64,7 @@ contract Avatar is Ownable {
         _mim3Pool.approve(address(_gauge), uint(-1));
         _bmim3Pool.approve(address(_cauldron), uint(-1));
         _mim.approve(address(_bamm), uint(-1));
+        _mim.approve(address(_cauldron), uint(-1));        
     }
 
     //////////////////////////////////////////////////////////////////
@@ -161,7 +162,7 @@ contract BMCrvToken is Ownable {
         cauldron = _cauldron;
     }
 
-    function getAvatar(address a) internal returns(Avatar) {
+    function getAvatar(address a) public returns(Avatar) {
         if(avatars[a] == Avatar(0)) {
             Avatar av = new Avatar(mim, IERC20(address(this)), mim3Pool, gauge, cauldron, bamm, a);
             avatars[a] = av;
