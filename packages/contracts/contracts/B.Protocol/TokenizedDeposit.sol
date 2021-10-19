@@ -84,11 +84,11 @@ contract Avatar is Ownable {
 
     //////////////////////////////////////////////////////////////////
 
-    function addCollateral(uint bmim3PoolAmount) external onlyUser {
+    function addCollateral(uint bmim3PoolAmount) external onlyOwner {
         cauldron.addCollateral(address(this), false, bmim3PoolAmount);
     }
 
-    function removeCollateral(uint bmim3PoolAmount) external onlyUser {
+    function removeCollateral(uint bmim3PoolAmount) external onlyOwner {
         cauldron.removeCollateral(address(this), bmim3PoolAmount);
     }
 
@@ -179,11 +179,16 @@ contract BMCrvToken {
 
         totalSupply = totalSupply.add(mim3PoolAmount);
 
+        a.addCollateral(mim3PoolAmount);
+
         return mim3PoolAmount;
     }
 
     function burn(uint mim3PoolAmount) external returns(uint) {
         Avatar a = getAvatar(msg.sender);
+
+        try a.removeCollateral(mim3PoolAmount) {}
+        catch (bytes memory /* reason */) {/* life's a beach */}
 
         uint currBal = balanceOf[msg.sender];
         require(mim3PoolAmount <= currBal, "burn: low-balance");
