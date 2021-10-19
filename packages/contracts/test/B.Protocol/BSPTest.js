@@ -6,14 +6,12 @@ const toBN = th.toBN
 const mv = testHelpers.MoneyValues
 const timeValues = testHelpers.TimeValues
 
-const TroveManagerTester = artifacts.require("TroveManagerTester")
-const LUSDToken = artifacts.require("LUSDToken")
-const NonPayable = artifacts.require('NonPayable.sol')
-const BAMM = artifacts.require("BAMM.sol")
-const BLens = artifacts.require("BLens.sol")
-const ChainlinkTestnet = artifacts.require("ChainlinkTestnet.sol")
-const BSPToken = artifacts.require("BSPToken.sol")
-const CToken = artifacts.require("MockCToken.sol")
+const BAMM = artifacts.require("BAMMMock.sol")
+const Cauldron = artifacts.require("CauldronMock.sol")
+const CrvGauge = artifacts.require("CrvGaugeMock.sol")
+const FixedSupplyToken = artifacts.require("FixedSupplyToken.sol")
+const BMCrvToken = artifacts.require("BMCrvToken.sol")
+
 
 const ZERO = toBN('0')
 const ZERO_ADDRESS = th.ZERO_ADDRESS
@@ -23,11 +21,11 @@ const getFrontEndTag = async (stabilityPool, depositor) => {
   return (await stabilityPool.deposits(depositor))[1]
 }
 
-contract('BAMM', async accounts => {
+contract('tokenizedCrv', async accounts => {
   const [owner,
     defaulter_1, defaulter_2, defaulter_3,
     whale,
-    alice, bob, carol, dennis, erin, flyn,
+    alice, bob, carol, dennis, erin, fren,
     A, B, C, D, E, F,
     u1, u2, u3, u4, u5,
     v1, v2, v3, v4, v5,
@@ -37,90 +35,70 @@ contract('BAMM', async accounts => {
 
   const [bountyAddress, lpRewardsAddress, multisig] = accounts.slice(997, 1000)
 
-  const frontEnds = [frontEnd_1, frontEnd_2, frontEnd_3]
-  let contracts
-  let priceFeed
-  let lusdToken
-  let sortedTroves
-  let troveManager
-  let activePool
-  let stabilityPool
+  let mim
+  let mim3Pool
+  let bMim3Pool
+  let crop1
+  let crop2
+  let gauge
+  let cauldron
   let bamm
-  let lens
-  let chainlink
-  let defaultPool
-  let borrowerOperations
-  let lqtyToken
-  let communityIssuance
-  let bspToken
-  let cToken
 
   let gasPriceInWei
 
-  const feePool = "0x1000000000000000000000000000000000000001"
-
-  const getOpenTroveLUSDAmount = async (totalDebt) => th.getOpenTroveLUSDAmount(contracts, totalDebt)
-  const openTrove = async (params) => th.openTrove(contracts, params)
-  //const assertRevert = th.assertRevert
-
-  describe("BAMM", async () => {
+  describe("tokenizedCrv", async () => {
 
     before(async () => {
       gasPriceInWei = await web3.eth.getGasPrice()
     })
 
     beforeEach(async () => {
-      contracts = await deploymentHelper.deployLiquityCore()
-      contracts.troveManager = await TroveManagerTester.new()
-      contracts.lusdToken = await LUSDToken.new(
-        contracts.troveManager.address,
-        contracts.stabilityPool.address,
-        contracts.borrowerOperations.address
-      )
-      const LQTYContracts = await deploymentHelper.deployLQTYContracts(bountyAddress, lpRewardsAddress, multisig)
+      mim = await FixedSupplyToken.new({from: whale})
+      mim3Pool = await FixedSupplyToken.new({from: whale})
+      crop1 = await FixedSupplyToken.new({from: whale})
+      crop2 = await FixedSupplyToken.new({from: whale})      
 
-      priceFeed = contracts.priceFeedTestnet
-      lusdToken = contracts.lusdToken
-      sortedTroves = contracts.sortedTroves
-      troveManager = contracts.troveManager
-      activePool = contracts.activePool
-      stabilityPool = contracts.stabilityPool
-      defaultPool = contracts.defaultPool
-      borrowerOperations = contracts.borrowerOperations
-      hintHelpers = contracts.hintHelpers
+      gauge = await CrvGauge.new(mim3Pool.address, crop1.address, crop2.address)
+      await crop1.transfer(gauge.address, dec(1000, 18), {from: whale})
+      await crop2.transfer(gauge.address, dec(1000, 18), {from: whale})
 
-      lqtyToken = LQTYContracts.lqtyToken
-      communityIssuance = LQTYContracts.communityIssuance
+      bamm = await BAMM.new(mim.address)
+      bMim3Pool = await BMCrvToken.new(mim.address, mim3Pool.address, gauge.address, bamm.address)
+      cauldron = await Cauldron.new(bMim3Pool.address, mim.address)
+      await bMim3Pool.setCauldron(cauldron.address)
+      await mim.transfer(cauldron.address, dec(10000, 18), {from: whale})
 
-      await deploymentHelper.connectLQTYContracts(LQTYContracts)
-      await deploymentHelper.connectCoreContracts(contracts, LQTYContracts)
-      await deploymentHelper.connectLQTYContractsToCore(LQTYContracts, contracts)
-
-      // Register 3 front ends
-      //await th.registerFrontEnds(frontEnds, stabilityPool)
-
-      // deploy BAMM
-      chainlink = await ChainlinkTestnet.new(priceFeed.address)
-
-      const kickbackRate_F1 = toBN(dec(5, 17)) // F1 kicks 50% back to depositor
-      await stabilityPool.registerFrontEnd(kickbackRate_F1, { from: frontEnd_1 })
-
-      bamm = await BAMM.new(chainlink.address, stabilityPool.address, lusdToken.address, lqtyToken.address, 400, feePool, frontEnd_1, {from: bammOwner})
-      lens = await BLens.new()
-
-      cToken = await CToken.new()
-      bspToken = await BSPToken.new(lusdToken.address, lqtyToken.address, bamm.address, cToken.address)
+      const million = dec(10000, 18)
+      await mim3Pool.transfer(fren, million, {from: whale})
+      await mim3Pool.approve(bMim3Pool.address, million, {from: fren})
     })
 
-    it("mint(): mint first token", async () => {
-      // --- SETUP --- Give Alice a least 200
-      await openTrove({ extraLUSDAmount: toBN(200), ICR: toBN(dec(2, 18)), extraParams: { from: alice } })
+    it.only("basic mint and burn", async () => {
+      const originalBal = await mim3Pool.balanceOf(fren)
+      const mintAmount = toBN(dec(1, 18));
+      const burnAmount = toBN(dec(5, 17)); // burn half
+      const deltaMint = mintAmount.sub(burnAmount)
 
-      // --- TEST ---
-      await lusdToken.approve(bspToken.address, toBN(200), { from: alice })
-      await bspToken.mint(toBN(200), { from: alice })
+      await bMim3Pool.mint(mintAmount, {from: fren})
+      assert.equal((await bMim3Pool.balanceOf(cauldron.address)).toString(), mintAmount.toString(), "unexepcted cauld b balance")
+      assert.equal((await bMim3Pool.balanceOf(fren)).toString(), "0", "unexepcted user b balance")
+      assert.equal((await mim3Pool.balanceOf(fren)).add(mintAmount).toString(), originalBal.toString(), "unexepcted user mim3Pool balance")
 
-      assert.equal((await bspToken.balanceOf(alice)).toString(), toBN(dec(1, 18)).toString())
+      await bMim3Pool.burn(burnAmount, {from: fren})
+      assert.equal((await bMim3Pool.balanceOf(cauldron.address)).toString(), deltaMint.toString(), "unexepcted cauld b balance")
+      assert.equal((await bMim3Pool.balanceOf(fren)).toString(), "0", "unexepcted user b balance")
+      assert.equal((await mim3Pool.balanceOf(fren)).add(deltaMint).toString(), originalBal.toString(), "unexepcted user mim3Pool balance")
+
+      const crop1BalBefore = await crop1.balanceOf(fren)
+      const crop2BalBefore = await crop2.balanceOf(fren)
+
+      await bMim3Pool.harvest({from: fren})
+
+      const crop1BalAfter = await crop1.balanceOf(fren)
+      const crop2BalAfter = await crop2.balanceOf(fren)
+
+      assert(crop1BalAfter.gt(crop1BalBefore), "crop1 failed")
+      assert(crop2BalAfter.gt(crop2BalBefore), "crop2 failed")      
     })
 
     it("burn(): burn half the tokens", async () => {

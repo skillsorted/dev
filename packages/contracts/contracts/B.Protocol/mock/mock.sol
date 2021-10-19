@@ -4,7 +4,7 @@ pragma solidity 0.6.11;
 import "./../../Dependencies/IERC20.sol";
 
 
-contract CrvGauge {
+contract CrvGaugeMock {
     IERC20 gem;
     IERC20 crop1;
     IERC20 crop2;
@@ -39,7 +39,7 @@ contract CrvGauge {
     }
 }
 
-contract Cauldron {
+contract CauldronMock {
     mapping(address => uint) public userCollateralShare;
     mapping(address => uint) public userBorrowPart;
 
@@ -88,7 +88,7 @@ contract Cauldron {
     }
 }
 
-contract BAMM {
+contract BAMMMock {
     IERC20 mim;
     mapping(address=>uint) public balanceOf;
 

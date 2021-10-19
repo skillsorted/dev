@@ -77,8 +77,7 @@ contract Avatar is Ownable {
         mim3Pool.transfer(dest, m3pAmount);
     }
 
-    // callable by anyone
-    function harvest(address dest) external returns(uint) {
+    function harvest(address dest) external onlyOwner {
         gauge.claim_rewards(address(this), dest);
     }
 
@@ -128,13 +127,13 @@ contract Avatar is Ownable {
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-contract BMCrvToken {
+contract BMCrvToken is Ownable {
     using SafeMath for uint256;
 
     IERC20 public immutable mim;
     IERC20 public immutable mim3Pool;
     CrvGauge public immutable gauge;
-    Cauldron public immutable cauldron;
+    Cauldron public cauldron;
     BAMM public immutable bamm;
 
     uint public totalSupply;
@@ -150,12 +149,16 @@ contract BMCrvToken {
     event Transfer(address indexed from, address indexed to, uint tokens);
     event Approval(address indexed tokenOwner, address indexed spender, uint tokens);    
 
-    constructor(IERC20 _mim, IERC20 _mim3Pool, CrvGauge _gauge, Cauldron _cauldron, BAMM _bamm) public {
+    constructor(IERC20 _mim, IERC20 _mim3Pool, CrvGauge _gauge, BAMM _bamm) public {
         mim3Pool = _mim3Pool;
         mim = _mim;
         gauge = _gauge;
-        cauldron = _cauldron;
         bamm = _bamm;
+    }
+
+    function setCauldron(Cauldron _cauldron) external onlyOwner {
+        require(cauldron == Cauldron(address(0x0)), "setCauldron: already-init");
+        cauldron = _cauldron;
     }
 
     function getAvatar(address a) internal returns(Avatar) {
@@ -173,9 +176,9 @@ contract BMCrvToken {
         Avatar a = getAvatar(msg.sender);
         mim3Pool.transferFrom(msg.sender, address(a), mim3PoolAmount);
         a.mint(mim3PoolAmount);
-        balanceOf[msg.sender] = balanceOf[msg.sender].add(mim3PoolAmount);
+        balanceOf[address(a)] = balanceOf[address(a)].add(mim3PoolAmount);
 
-        emit Transfer(address(0), msg.sender, mim3PoolAmount);
+        emit Transfer(address(0), address(a), mim3PoolAmount);
 
         totalSupply = totalSupply.add(mim3PoolAmount);
 
@@ -190,15 +193,15 @@ contract BMCrvToken {
         try a.removeCollateral(mim3PoolAmount) {}
         catch (bytes memory /* reason */) {/* life's a beach */}
 
-        uint currBal = balanceOf[msg.sender];
+        uint currBal = balanceOf[address(a)];
         require(mim3PoolAmount <= currBal, "burn: low-balance");
 
-        balanceOf[msg.sender] = currBal.sub(mim3PoolAmount);
+        balanceOf[address(a)] = currBal.sub(mim3PoolAmount);
         a.burn(mim3PoolAmount, msg.sender);
 
         totalSupply = totalSupply.sub(mim3PoolAmount);
 
-        emit Transfer(msg.sender, address(0), mim3PoolAmount); 
+        emit Transfer(address(a), address(0), mim3PoolAmount); 
     }
 
     function harvest() external {
@@ -244,11 +247,14 @@ contract BMCrvToken {
         return _transfer(msg.sender, dest, amount);
     }
 
-    function tranferFrom(address sender, address recipient, uint amount) external returns(bool) {
-        require(allowance[sender][recipient] >= amount, "tranferFrom: insufficient allowance");
-        allowance[sender][recipient] = allowance[sender][recipient].sub(amount);
+    function transferFrom(address sender, address recipient, uint amount) external returns(bool) {
+        require(allowance[sender][recipient] >= amount, "transferFrom: insufficient allowance");
+        
+        if(allowance[sender][recipient] != uint(-1)) {
+            allowance[sender][recipient] = allowance[sender][recipient].sub(amount);
+        }
 
-        require(_transfer(sender, recipient, amount), "tranferFrom: _transfer failed");
+        require(_transfer(sender, recipient, amount), "transferFrom: _transfer failed");
 
         return true;
     }
