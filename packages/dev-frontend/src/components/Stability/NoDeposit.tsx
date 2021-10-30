@@ -52,7 +52,7 @@ export const NoDeposit: React.FC = props => {
       </Heading>
       <Box sx={{ p: [2, 3] }}>
         <InfoMessage title="You have no LUSD in the Stability Pool.">
-          You can earn LUSD and LQTY rewards by depositing LUSD.
+          You can earn <b>LUSD</b> and <b>LQTY</b> rewards by depositing LUSD.
         </InfoMessage>
 
         <Flex variant="layout.actions">

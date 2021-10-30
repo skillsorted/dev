@@ -9,18 +9,18 @@ import { Staking } from "../components/Staking/Staking";
 export const Dashboard: React.FC = () => (
   <Container variant="columns">
     <Container variant="left">
-      <div  className="hide" > 
+      {/* <div  className="hide" > 
         <Trove />
-      </div>
+      </div> */}
       <Stability />
-      <Staking />
+      {/* <Staking /> */}
     </Container>
 
     <Container variant="right">
       <SystemStats />
-      <div  className="hide" > 
+      {/* <div  className="hide" > 
         <PriceManager />
-      </div>
+      </div> */}
     </Container>
   </Container>
 );

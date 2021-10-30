@@ -36,14 +36,14 @@ export const Header: React.FC = ({ children }) => {
           }}
         />
         </div>
-        {isFrontendRegistered && (
+        {/* {isFrontendRegistered && (
           <>
             <div  className="hide" > 
               <SideNav /> 
             </div>
             <Nav />
           </>
-        )}
+        )} */}
       </Flex>
 
       {children}
